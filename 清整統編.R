@@ -16,6 +16,8 @@ GV <- GV %>% select(-starts_with("名稱")) %>%
 clean_county <- function(x){
   x <- str_replace(x, "臺北縣", "新北市") #升格直轄市
   x <- str_replace(x, "臺南縣", "臺南市")
+  x <- str_replace(x, "臺中縣", "臺中市")
+  x <- str_replace(x, "桃園縣", "桃園市")
   x <- str_replace(x, "高雄縣", "高雄市")
   return(x)
 }
@@ -23,10 +25,10 @@ clean_county <- function(x){
 GV <- GV %>%
   mutate(county = ifelse(str_detect(營業地址, "縣|市"), str_sub(營業地址,1,3), ""),
          county = clean_county(county))
-GV %>% filter(city == "平鎮")
-#鄉鎮市區
+
+#鄉鎮市區清整------------------------------
 clean_city <- function(x){
-  x <- str_replace(x, "光鎮","") # 改制後升格 or 特殊
+  x <- str_replace(x, "光鎮","") # 改制後升格 or 少數程式邏輯缺陷
   x <- str_replace(x, "土城市","土城區")
   x <- str_replace(x, "大社鄉","大社區")
   x <- str_replace(x, "大寮鄉","大寮區")
@@ -52,26 +54,24 @@ clean_city <- function(x){
 }
 
 GV <- GV %>%
-  mutate(city = str_replace(營業地址, county, ""), #排除縣市的'市'
-         city = str_sub(city, 1, 4),
+  mutate(city = str_replace(營業地址, county, ""), #排除縣市部分
+         city = str_sub(city, 1, 4), #只取四個字避免特殊狀況
          city = ifelse(str_detect(city, "三地門|阿里山|那瑪夏|太麻里"),
                        str_extract(city, ".{1,4}[鄉|鎮|市|區]"),#鄉鎮市區長度不大於4
                        str_extract(city, ".{1,2}[鄉|鎮|市|區]"))) %>% #鄉鎮市區長度不大於2
   mutate(city = clean_city(city),
          city = ifelse(str_detect(營業地址, "香山區"), "香山區", city))
 
-#村里
-GV <- GV %>%
-  mutate(village = paste(county, city, sep = ""),
-         village = str_replace(營業地址, village, ""),
+#村里清整------------------------------
+GV <- GV %>% 
+  mutate(village = paste(county, city, sep = ""), 
+         village = str_replace(營業地址, village, ""), #排除縣市與鄉鎮市區部分
          village = ifelse(str_detect(village, "哨船頭里|拉芙蘭里|達卡努瓦里|南沙魯里|頭家東里|烏樹林里|鯉魚潭村"),
                           str_extract(village, ".{3,4}[村|里]"),
                           str_extract(village, ".{2}[村|里]"))) %>%
   mutate(village = ifelse(city == "南庄鄉" & str_detect(營業地址, "東村|西村"),
                           str_extract(營業地址, "[東|西]村"),
                           village))
-
-GV %>% filter(!is.na(總機構統一編號))
 
 names(GV) <- c("address", "taxID", "head_taxID", "company_name", "Capital", "set_date", "use_invoice",
                "行業代號", "行業代號_1", "行業代號_2", "行業代號_3", "county", "city", "village")
